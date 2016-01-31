@@ -756,18 +756,24 @@ enyo.kind({
     onNetworkConnect: function (inSender, inEvent) {
 	var password = this.$.PasswordInput.getValue();
 	var passwordPlausible = this.validatePassword(password);
+        var name = "";
+        if (this.currentNetwork.name != "") {
+            name = this.currentNetwork.name;
+        }
 
         if (!passwordPlausible) {
 	    this.showError("Entered password is invalid");
         } else {
             this.connectNetwork({
                 path: this.currentNetwork.path,
-                password: password
+                password: password,
+                name: name
             });
 
             // switch back to network list view
             this.showNetworksList();
 	    delete password;
+            delete name;
             this.$.PasswordInput.setValue("");
 	}
     },
@@ -783,12 +789,26 @@ enyo.kind({
 		ssid: this.$.ssidInput.getValue(),
 		path: "", // How do we get this from the ssid?
 		// hidden: true; // In fact, you could type a known ssid.
-		security: ["none"]
+		security: ["none"],
+		name: this.$.ssidInput.getValue()
             };
 	    var requiredSec = this.$.SecurityTypePicker.getSelected().getContent();
 	    if (requiredSec === "WPA-Personal" ||
 		requiredSec === "WEP") {
 		this.currentNetwork.security = ["psk"];
+	    }
+
+	    var i, path = "";
+	    for (i = 0; i < this.foundNetworks.length; i++) {
+	        if (this.foundNetworks[i].name === "") {
+	            path = this.foundNetworks[i].path;
+	            this.log("found hidden network:", path);
+	            this.log("found hidden network security:", this.foundNetworks[i].security);
+	            this.log("searching for hidden network security[0]:", this.currentNetwork.security[0]);
+	            if (this.foundNetworks[i].security.contains(this.currentNetwork.security[0])) {
+	                this.currentNetwork.path = path;
+	            }
+	        }
 	    }
 
             if (!this.currentNetwork.security.contains("none")) {
@@ -799,7 +819,8 @@ enyo.kind({
 		this.log("Connect to open network");
 		this.connectNetwork({
                     path: this.currentNetwork.path,
-                    password: ""
+                    password: "",
+                    name: this.currentNetwork.name
 		});
             }
 	}
@@ -870,16 +891,22 @@ enyo.kind({
             path: network.path,
             hidden: false,
             security: "",
-            password: ""
+            password: "",
+            name: ""
         };
 
         if (network.password != "") {
             this.log("Connecting to PSK network");
             networkToConnect.security = "psk";
-            networkToConnect.password = inEvent.password;
+            networkToConnect.password = network.password;
         }
         else {
             this.log("Connecting to unsecured network");
+        }
+
+        if (network.name != "") {
+            this.log("Connecting to hidden network");
+            networkToConnect.name = network.name;
         }
 
         navigator.WiFiManager.connectNetwork(networkToConnect,
